@@ -1,0 +1,35 @@
+[package]
+name = "runtime-tls"
+version = "0.1.0"
+authors = ["Bryan McCoid <bryan.mccoid@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+lazy_static = "1.3.0"
+hashbrown = "0.3.0"
+
+# 'Runtime' (can use tokio) -- Currently the only easy way to use actual async await
+#  notation and new-style futures in these programs. Even uses the new style syntax
+#  of '.await', which was (of course) highly controversial.
+runtime = "0.3.0-alpha.4"
+
+# Optional tokio backend for 'Runtime'
+# runtime-tokio = "0.3.0-alpha.4"
+
+# Futures
+futures-preview = "=0.3.0-alpha.16"
+
+# TLS!
+rustls = "0.15.2"
+webpki = "0.19"
+webpki-roots = "0.16.0"
+
+# Error handling
+failure = "*"
+
+# logging
+log = "0.4.6"
+pretty_env_logger = "0.3.0"
+# env_logger = "*"
