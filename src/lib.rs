@@ -1,5 +1,5 @@
-
-
+//! # Runtime-tls: Async/Await TLS/SSL streams
+//!
 //! Async TLS streams
 //!
 #![feature(async_await, nll)]
@@ -10,7 +10,7 @@ use pretty_env_logger::{try_init, try_init_timed};
 
 mod errors;
 mod server;
-mod client;
+pub mod client;
 
 #[cfg(test)]
 mod tests {
