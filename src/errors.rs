@@ -5,6 +5,8 @@ use std::io::Error as IOError;
 pub enum Error {
     #[fail(display="Placeholder Error")]
     PlaceholderError,
+    #[fail(display="Could not find private key in the provided file")]
+    NoPrivateKeyFoundError,
 }
 
 unsafe impl Sync for Error {}

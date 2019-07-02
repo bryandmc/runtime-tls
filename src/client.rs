@@ -77,6 +77,30 @@ pub fn load_certs(filename: &str) -> Vec<rustls::Certificate> {
 ///
 /// ### Example:
 /// ```
+/// use runtime_tls::client::{load_private_key, load_key_and_cert, HashMapSessionStore, create_client_config};
+/// use std::sync::Arc;
+///
+/// let cache = HashMapSessionStore::new();
+/// let mut config = create_client_config(Arc::new(cache)).unwrap();
+/// if let Err(e) = load_key_and_cert(&mut config, "certs/localhost.key", "certs/localhost.crt") {
+///     panic!("failed to load client key or certs: {}", e); // failed...
+/// }
+/// // use `config` here...
+/// ```
+///
+pub fn load_key_and_cert(config: &mut ClientConfig, keyfile: &str, certsfile: &str) -> Result<(), Error> {
+    let certs = load_certs(certsfile);
+    if let Some(private_key) = load_private_key(keyfile) {
+        config.set_single_client_cert(certs, private_key);
+        return Ok(());
+    }
+    Err(Error::PlaceholderError)
+}
+
+/// loads certificates from file, by name.
+///
+/// ### Example:
+/// ```
 /// use runtime_tls::client::load_private_key;
 /// let key = load_private_key("certs/localhost.key");
 /// ```
@@ -91,15 +115,6 @@ pub fn load_private_key(filename: &str) -> Option<rustls::PrivateKey> {
     Some(keys[0].clone())
 }
 
-fn load_key_and_cert(config: &mut ClientConfig, keyfile: &str, certsfile: &str) -> Result<(), Error> {
-    let certs = load_certs(certsfile);
-    if let Some(private_key) = load_private_key(keyfile) {
-        config.set_single_client_cert(certs, private_key);
-        return Ok(());
-    }
-    Err(Error::PlaceholderError)
-}
-
 
 /// generates a rustls::ClientConfig which will usually be a single config for all client connections with the same
 /// general settings.
@@ -111,19 +126,18 @@ fn load_key_and_cert(config: &mut ClientConfig, keyfile: &str, certsfile: &str) 
 /// use std::fs::File;
 /// use std::sync::Arc;
 ///
-/// let mut cert_file = BufReader::new(File::open("certs/localhost.crt").unwrap());
 /// let cache = HashMapSessionStore::new();
-/// let config = create_client_config(&mut cert_file, Arc::new(cache)).unwrap();
+/// let config = create_client_config(Arc::new(cache)).unwrap();
 /// ```
 ///
-pub fn create_client_config<S>(reader: &mut BufReader<File>, persistence: Arc<S>) -> Result<Arc<ClientConfig>, Error>
+pub fn create_client_config<S>(persistence: Arc<S>) -> Result<ClientConfig, Error>
 where
     S: StoresClientSessions + 'static
 {
     let mut config = ClientConfig::new();
     config.versions = vec![ProtocolVersion::TLSv1_3, ProtocolVersion::TLSv1_2];
-    let (added, _) = config.root_store.add_pem_file(reader)?;
-    debug!("Added: {}", added);
+//    let (added, _) = config.root_store.add_pem_file(reader)?;
+//    debug!("Added: {}", added);
     config.root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
     config.ct_logs = Some(&ct_logs::LOGS);
     config.enable_tickets = false;
@@ -131,7 +145,7 @@ where
 
     // Store session data
     config.set_persistence(persistence);
-    Ok(Arc::new(config))
+    Ok(config)
 }
 
 impl From<()> for Error {
@@ -162,7 +176,7 @@ mod tests {
         try_init();
         let x = HashMapSessionStore::new();
         let mut cert_file = BufReader::new(File::open("certs/localhost.crt")?);
-        let conf = create_client_config(&mut cert_file, Arc::new(x));
+        let conf = create_client_config(Arc::new(x));
         debug!("Output: {:?}", conf.unwrap().root_store);
         Ok(())
     }
