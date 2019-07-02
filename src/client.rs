@@ -82,7 +82,7 @@ pub fn load_certs(filename: &str) -> Vec<rustls::Certificate> {
 ///
 /// let cache = HashMapSessionStore::new();
 /// let mut config = create_client_config(Arc::new(cache)).unwrap();
-/// if let Err(e) = load_key_and_cert(&mut config, "certs/localhost.key", "certs/localhost.crt") {
+/// if let Err(e) = load_key_and_cert(&mut config, "certs/client/ca.key", "certs/client/ca.pem") {
 ///     panic!("failed to load client key or certs: {}", e); // failed...
 /// }
 /// // use `config` here...
