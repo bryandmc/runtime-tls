@@ -24,7 +24,7 @@ runtime = "0.3.0-alpha.4"
 futures-preview = { version = "=0.3.0-alpha.16", features = ["async-await", "nightly"] }
 
 # TLS!
-rustls = "0.15.2"
+rustls = { version = "0.15.2", features = ["log"]}
 webpki = "0.19"
 webpki-roots = "0.16.0"
 ct-logs = "0.5"

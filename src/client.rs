@@ -135,13 +135,11 @@ where
     S: StoresClientSessions + 'static
 {
     let mut config = ClientConfig::new();
-    config.versions = vec![ProtocolVersion::TLSv1_3, ProtocolVersion::TLSv1_2];
-//    let (added, _) = config.root_store.add_pem_file(reader)?;
-//    debug!("Added: {}", added);
+//    config.versions = vec![ProtocolVersion::TLSv1_3, ProtocolVersion::TLSv1_2];
     config.root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
     config.ct_logs = Some(&ct_logs::LOGS);
     config.enable_tickets = false;
-    config.enable_sni = false;
+    config.enable_sni = true;
 
     // Store session data
     config.set_persistence(persistence);
@@ -158,11 +156,18 @@ impl From<()> for Error {
 mod tests {
     use super::*;
     use std::fs::File;
-    use std::io::Read;
+    use std::io::{Read, Cursor, Write};
     use pretty_env_logger::{try_init, try_init_timed};
     use failure::Error;
     use std::path::Prefix::Verbatim;
-
+    use runtime::net::TcpStream;
+    use std::net::ToSocketAddrs;
+    use rustls::Session;
+    use futures::io::AsyncReadExt;
+    use futures::io::AsyncWriteExt;
+    use futures::io::WriteAll;
+    use futures::AsyncWrite;
+//    use webpki::Error::CAUsedAsEndEntity;
 
     #[runtime::test]
     async fn start_client() -> Result<(), Error> {
@@ -171,14 +176,78 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn create_config() -> Result<(), Error> {
+    #[runtime::test]
+    async fn create_config() -> Result<(), Error> {
         try_init();
         let x = HashMapSessionStore::new();
         let mut cert_file = BufReader::new(File::open("certs/localhost.crt")?);
-        let conf = create_client_config(Arc::new(x));
-        debug!("Output: {:?}", conf.unwrap().root_store);
+        let mut conf = create_client_config(Arc::new(x))?;
+
+        let certs_chain = load_certs("certs/client/ca.pem");
+        let private_key = load_private_key("certs/client/ca.key").unwrap();
+//        conf.set_single_client_cert(certs_chain, private_key);
+        // debug!("Output: {:?}", conf.unwrap().root_store);
+        let mut sock: TcpStream = TcpStream::connect("google.com:443".to_socket_addrs().unwrap().next().unwrap()).await?;
+        dbg!(&sock);
+        let google_com = webpki::DNSNameRef::try_from_ascii_str("google.com").unwrap();
+        dbg!(&google_com);
+        let rc_config = Arc::new(conf);
+        let mut client = rustls::ClientSession::new(&rc_config, google_com);
+
+        let write_block = client.write(b"GET / HTTP/1.0\r\n\r\n")?;
+        info!("client.write(): {}", write_block);
+        for i in 0..10 {
+            if client.wants_write() {
+                info!("wanted write!");
+                let mut buf = Vec::with_capacity(1024);
+                let mut cursor = Cursor::new(buf);
+                let res = client.write_tls(&mut cursor)?;
+                debug!("write_tls(): {}", res);
+                let mut buf = cursor.into_inner();
+                debug!("cursor_write: {:?}", String::from_utf8_lossy(&buf));
+                let sock_write: () = sock.write_all(&mut buf[..]).await?;
+                debug!("after sock.write_all");
+            }
+
+            if client.wants_read() {
+                info!("wanted read!");
+                let mut buf = Vec::with_capacity(1024);
+                let sock_read = sock.read_to_end(&mut buf).await?;
+                debug!("read_to_end(): {:?}", String::from_utf8_lossy(&buf));
+
+                let mut cursor = Cursor::new(buf);
+                let res = client.read_tls(&mut cursor)?;
+                debug!("read_tls: {}", res);
+                debug!("read_tls(): {:?}", String::from_utf8_lossy(&cursor.into_inner()));
+
+                client.process_new_packets()?;
+
+                let mut outbuf = vec![];
+                let read_plaintext = client.read_to_end(&mut outbuf)?;
+                debug!("plaintext[{}]: {:?}", read_plaintext, &outbuf);
+            }
+
+            if !client.is_handshaking() {
+                info!("Finished handshake!!!!");
+                let ciphers = client.get_negotiated_ciphersuite();
+                debug!("ciphersuites: {:?}", ciphers);
+                let server_cert = client.get_peer_certificates();
+                debug!("server cert-chain: {:?}", server_cert);
+                let version = client.get_protocol_version();
+                debug!("running TLS version: {:?}", version);
+            }
+        }
+
+
+        dbg!(&client);
         Ok(())
+    }
+
+    #[test]
+    fn test_dns_lookup() {
+        try_init();
+        let res = "google.com:80".to_socket_addrs().unwrap().next().unwrap();
+        info!("DNS: {:?}", res);
     }
 
     #[test]
