@@ -235,6 +235,7 @@ mod tests {
                 debug!("server cert-chain: {:?}", server_cert);
                 let version = client.get_protocol_version();
                 debug!("running TLS version: {:?}", version);
+                return Ok(());
             }
         }
 
