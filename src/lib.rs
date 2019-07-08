@@ -2,7 +2,7 @@
 //!
 //! Async TLS streams
 //!
-#![feature(async_await, nll)]
+#![feature(async_await, existential_type, arbitrary_self_types, pin)]
 
 #[macro_use]
 extern crate log;
@@ -17,12 +17,6 @@ mod tests {
     use super::*;
     use failure::Error;
     use pretty_env_logger::{try_init, try_init_timed};
-    use runtime::net::tcp::{TcpListener, TcpStream};
-    use bytes::{Bytes, BytesMut};
-    use std::sync::Arc;
-    use futures::StreamExt;
-    use futures::io::AsyncReadExt;
-    use futures::{FutureExt, TryFutureExt};
 
     #[runtime::test]
     async fn library_root_test() -> Result<(), Error> {

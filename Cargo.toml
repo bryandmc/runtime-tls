@@ -29,6 +29,8 @@ webpki = "0.19"
 webpki-roots = "0.16.0"
 ct-logs = "0.5"
 
+base64 = "0.10.1"
+
 # alternative tls implementation... Trying to get this to freaking work
 #native-tls = "0.2"
 
